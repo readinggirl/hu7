@@ -9,7 +9,10 @@ package hausuebung7.bsp1;
  *
  * @author bmayr
  */
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
 /**
@@ -17,10 +20,25 @@ import java.util.concurrent.RecursiveAction;
  */
 public final class ReciprocalArraySum {
 
+    public static void main(String[] args) {
+        double[] input = new double[60000];
+
+        for (int i = 0; i < input.length; i++) {
+            input[i] = Math.random() * 100;
+        }
+
+        ReciprocalArraySumTask rast = new ReciprocalArraySumTask(0, input.length - 1, input);
+
+        rast.compute();
+
+        parManyTaskArraySum(input, 2);
+    }
+
     /**
      * Default constructor.
      */
     private ReciprocalArraySum() {
+
     }
 
     /**
@@ -30,13 +48,12 @@ public final class ReciprocalArraySum {
      * @return The sum of the reciprocals of the array input
      */
     protected static double seqArraySum(final double[] input) {
+        // ToDo: Compute sum of reciprocals of array elements
         double sum = 0;
         for (int i = 0; i < input.length; i++) {
-            sum = sum + (1 / i);
+            sum += (1 / input[i]);
         }
         return sum;
-        // ToDo: Compute sum of reciprocals of array elements
-
     }
 
     /**
@@ -93,31 +110,42 @@ public final class ReciprocalArraySum {
             // array smaller than threshold: compute sequentially else, fork
             // 2 new threads
             if (input.length <= SEQUENTIAL_THRESHOLD) { // base case
-                Double sum = seqArraySum(input);
-                System.out.format("Sum of %s: \n", Arrays.toString(input), sum);
-            } else {
+                double sum = seqArraySum(input);
+                System.out.println(sum);
+            } else { // recursive case
+                // Calculate new range
                 int mid = input.length / 2;
-                ReciprocalArraySumTask firstSubtask = new ReciprocalArraySumTask(0, mid, Arrays.asList(input).subList(0, mid).stream().mapToDouble(Double::doubleValue).toArray());
-                ReciprocalArraySumTask secondSubtask = new ReciprocalArraySumTask(mid + 1, input.length, Arrays.asList(input).subList(mid + 1, input.length).stream().mapToDouble(Double::doubleValue).toArray());
 
-                invokeAll(firstSubtask, secondSubtask);
-                System.out.println(firstSubtask.getValue() + secondSubtask.getValue());
+                double[] first = Arrays.copyOfRange(input, 0, mid);
+                double[] second = Arrays.copyOfRange(input, mid, input.length - 1);
+
+                ReciprocalArraySumTask firstHalf = new ReciprocalArraySumTask(startIndexInclusive, mid, first);
+                ReciprocalArraySumTask secondHalf = new ReciprocalArraySumTask(mid, endIndexExclusive, second);
+
+                invokeAll(firstHalf, secondHalf);
             }
-        }
 
-        /**
-         * TODO: Extend the work you did to implement parArraySum to use a set
-         * number of tasks to compute the reciprocal array sum.
-         *
-         * @param input Input array
-         * @param numTasks The number of tasks to create
-         * @return The sum of the reciprocals of the array input
-         */
-        protected static double parManyTaskArraySum(final double[] input,
-                final int numTasks) {
-            double sum = 0;
-            // ToDo: Start Calculation with help of ForkJoinPool
-            return sum;
         }
+    }
+
+    /**
+     * TODO: Extend the work you did to implement parArraySum to use a set
+     * number of tasks to compute the reciprocal array sum.
+     *
+     * @param input Input array
+     * @param numTasks The number of tasks to create
+     * @return The sum of the reciprocals of the array input
+     */
+    protected static double parManyTaskArraySum(final double[] input, final int numTasks) {
+        double sum = 0;
+        // ToDo: Start Calculation with help of ForkJoinPool
+        ForkJoinPool fjp = new ForkJoinPool(numTasks);
+        List<ReciprocalArraySumTask> reciprocalArraySumTasks = new ArrayList<>();
+        for (int i = 0; i < numTasks; i++) {
+            ReciprocalArraySumTask t = new ReciprocalArraySumTask(0, input.length - 1, input);
+            ForkJoinPool.commonPool().invoke(t);
+            sum += t.getValue();
+        }
+        return sum;
     }
 }
